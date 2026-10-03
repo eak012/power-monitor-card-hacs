@@ -57,16 +57,25 @@ class PowerMonitorCard extends HTMLElement {
 
   _formatRelativeTime(dateStr) {
     if (!dateStr) return "";
-    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "";
+    const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (diff < 0) return "just now";
     if (diff < 60) return `${Math.max(1, diff)}s ago`;
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     return `${Math.floor(diff / 86400)}d ago`;
   }
 
-  _getSecondaryText(entityId, type) {
-    if (!entityId || !type || type === "none") return "";
-    const stateObj = this._hass?.states?.[entityId];
+  _getSecondaryText(dev) {
+    const type = dev.secondary_info;
+    if (!type || type === "none") return "";
+
+    // ลำดับการดึง: ใช้จาก switch entity เป็นหลัก หากไม่มีให้ใช้ power entity
+    const targetEntityId = dev.switch || dev.power;
+    if (!targetEntityId) return "";
+
+    const stateObj = this._hass?.states?.[targetEntityId];
     if (!stateObj) return "";
 
     if (type === "last-changed") {
@@ -76,7 +85,7 @@ class PowerMonitorCard extends HTMLElement {
       return this._formatRelativeTime(stateObj.last_updated);
     }
     if (type === "entity-id") {
-      return entityId;
+      return targetEntityId;
     }
     return "";
   }
@@ -110,22 +119,22 @@ class PowerMonitorCard extends HTMLElement {
       const stateObj = this._hass.states[dev.switch];
       const name = dev.name || stateObj?.attributes?.friendly_name || dev.switch;
       const icon = dev.icon || stateObj?.attributes?.icon || "mdi:flash";
-      const secText = this._getSecondaryText(dev.power || dev.switch, dev.secondary_info);
+      const secText = this._getSecondaryText(dev);
 
       return `
         <div class="row ${isOn ? "on" : "off"}">
           <!-- ทัชที่ชื่อและไอคอนเพื่อเปิด More-Info Dialog ของ Switch Entity -->
           <div class="col-name" data-entity="${dev.switch || ""}" title="ดูรายละเอียดอุปกรณ์">
             <ha-icon class="row-icon" icon="${icon}"></ha-icon>
-            <span class="row-title">${this._escape(name)}</span>
+            <div class="name-wrap">
+              <span class="row-title">${this._escape(name)}</span>
+              ${secText ? `<span class="sec-text">· ${this._escape(secText)}</span>` : ""}
+            </div>
           </div>
 
           <!-- ทัชที่ค่า W เพื่อเปิด More-Info Dialog ของ Power Sensor -->
           <div class="col-power ${dev.power ? "interactive" : ""}" data-entity="${dev.power || ""}" title="ดูกราฟกำลังไฟ">
-            <div class="val-w-wrap">
-              ${dev.power ? `<span class="val-w">${this._formatW(powerVal)}</span>` : '<span class="val-none">—</span>'}
-              ${secText ? `<span class="val-sec">${this._escape(secText)}</span>` : ""}
-            </div>
+            ${dev.power ? `<span class="val-w">${this._formatW(powerVal)}</span>` : '<span class="val-none">—</span>'}
           </div>
 
           <!-- เฉพาะการกดที่สวิตช์ตรงนี้เท่านั้นที่จะเปิด-ปิดไฟ -->
@@ -203,7 +212,7 @@ class PowerMonitorCard extends HTMLElement {
           padding: 2px 6px;
           border-radius: 6px;
           transition: background 0.15s ease;
-          min-height: 34px;
+          min-height: 32px;
         }
 
         .row:hover {
@@ -223,9 +232,12 @@ class PowerMonitorCard extends HTMLElement {
           user-select: none;
         }
 
-        .col-name:hover .row-title {
-          text-decoration: underline;
-          text-underline-offset: 2px;
+        .name-wrap {
+          display: flex;
+          align-items: baseline;
+          gap: 6px;
+          min-width: 0;
+          overflow: hidden;
         }
 
         .row-icon {
@@ -248,8 +260,23 @@ class PowerMonitorCard extends HTMLElement {
           text-overflow: ellipsis;
         }
 
+        .col-name:hover .row-title {
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+
+        /* Secondary Information หลังชื่อ สีเทา ตัวเล็ก */
+        .sec-text {
+          font-size: 10.5px;
+          font-weight: 400;
+          color: var(--text-sub);
+          opacity: 0.65;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+
         .col-power {
-          min-width: 76px;
+          min-width: 68px;
           text-align: right;
           font-variant-numeric: tabular-nums;
           padding: 2px 4px;
@@ -265,24 +292,10 @@ class PowerMonitorCard extends HTMLElement {
           background: rgba(125, 125, 125, 0.12);
         }
 
-        .val-w-wrap {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          line-height: 1.15;
-        }
-
         .val-w {
           font-size: 13.5px;
           font-weight: 500;
           color: var(--color-watt);
-        }
-
-        .val-sec {
-          font-size: 9.5px;
-          color: var(--text-sub);
-          opacity: 0.75;
-          margin-top: 1px;
         }
 
         .row.off .val-w {
@@ -331,7 +344,7 @@ class PowerMonitorCard extends HTMLElement {
       </ha-card>
     `;
 
-    // 1. กดที่สวิตช์ toggle เพื่อเปิด/ปิดไฟเท่านั้น
+    // 1. สวิตช์ toggle เพื่อเปิด/ปิดไฟ
     this.shadowRoot.querySelectorAll(".col-switch ha-switch").forEach((sw) => {
       sw.addEventListener("click", (e) => e.stopPropagation());
       sw.addEventListener("change", () => this._toggle(sw.dataset.switch));
@@ -447,7 +460,6 @@ class PowerMonitorCardEditor extends HTMLElement {
           border-bottom: 2px solid var(--primary-color, #0284c7);
         }
 
-        /* ปุ่ม 2 ขีด กดค้างลากขึ้น-ลง */
         .drag-handle {
           cursor: grab;
           color: var(--secondary-text-color);
@@ -707,12 +719,8 @@ class PowerMonitorCardEditor extends HTMLElement {
           this._render();
         });
 
-        // ----------------------------------------------------
-        // ระบบ Drag & Drop ด้วยการกดค้างที่ปุ่ม 2 ขีด (＝)
-        // ----------------------------------------------------
+        // Drag & Drop บน Desktop
         const handle = row.querySelector(".drag-handle");
-
-        // สำหรับ Mouse (Desktop)
         handle.addEventListener("mousedown", () => {
           row.draggable = true;
         });
@@ -744,31 +752,19 @@ class PowerMonitorCardEditor extends HTMLElement {
 
         row.addEventListener("drop", (e) => {
           e.preventDefault();
-          const rect = row.getBoundingClientRect();
-          const midY = rect.top + rect.height / 2;
           const from = this._draggedIndex;
-          let to = idx;
-
-          if (e.clientY >= midY && from < to) {
-            // เลื่อนลงไปข้างล่าง
-          } else if (e.clientY < midY && from > to) {
-            // เลื่อนขึ้นไปข้างบน
-          }
-
+          const to = idx;
           if (from !== null && from !== to) {
             this._moveItem(from, to);
           }
           this._clearDropIndicators();
         });
 
-        // สำหรับ Touch Screen (มือถือ / แท็บเล็ต)
-        let touchStartY = 0;
+        // Drag & Drop บน Touch Screen
         let isTouching = false;
-
         handle.addEventListener("touchstart", (e) => {
           isTouching = true;
           this._draggedIndex = idx;
-          touchStartY = e.touches[0].clientY;
           row.classList.add("is-dragging");
         }, { passive: true });
 
@@ -789,7 +785,7 @@ class PowerMonitorCardEditor extends HTMLElement {
           }
         }, { passive: true });
 
-        handle.addEventListener("touchend", (e) => {
+        handle.addEventListener("touchend", () => {
           if (!isTouching) return;
           isTouching = false;
           row.classList.remove("is-dragging");
@@ -863,6 +859,6 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "power-monitor-card",
   name: "Power Monitor Card (Slim List)",
-  description: "Ultra-compact switch and power card with native HA drag handle and info touch dialogs",
+  description: "Ultra-compact switch and power card with secondary info next to title",
   preview: true
 });
