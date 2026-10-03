@@ -85,7 +85,7 @@ class PowerMonitorCard extends HTMLElement {
     return `${Math.floor(diff / 86400)}d ago`;
   }
 
-  // ดึงค่า Secondary Information จาก Power Sensor เท่านั้น
+  // ดึงค่า Secondary Information จาก Power Sensor (W) เท่านั้น
   _getSecondaryText(dev) {
     const type = dev.secondary_info || "last-changed";
     if (type === "none" || !dev.power) return "";
@@ -93,11 +93,10 @@ class PowerMonitorCard extends HTMLElement {
     const stateObj = this._hass?.states?.[dev.power];
     if (!stateObj) return "";
 
-    if (type === "last-changed") {
-      return this._formatRelativeTime(stateObj.last_changed);
-    }
-    if (type === "last-updated") {
-      return this._formatRelativeTime(stateObj.last_updated);
+    if (type === "last-changed" || type === "last-updated") {
+      // ดึงค่า timestamp ที่อัปเดตล่าสุดของ Power Sensor
+      const timeToUse = stateObj.last_updated || stateObj.last_changed;
+      return this._formatRelativeTime(timeToUse);
     }
     if (type === "entity-id") {
       return dev.power;
@@ -138,7 +137,7 @@ class PowerMonitorCard extends HTMLElement {
 
       return `
         <div class="row ${isOn ? "on" : "off"}">
-          <div class="col-name" data-entity="${dev.switch || ""}" title="ดูรายละเอียดอุปกรณ์">
+          <div class="col-name" data-entity="${dev.switch || ""}" title="ดูรายละเอียดสวิตช์">
             <ha-icon class="row-icon" icon="${icon}"></ha-icon>
             <div class="name-wrap">
               <span class="row-title">${this._escape(name)}</span>
@@ -395,7 +394,7 @@ class PowerMonitorCard extends HTMLElement {
 }
 
 // ----------------------------------------------------
-// Visual Form Editor ใช้ <ha-sortable> ของ Native HA
+// Visual Form Editor
 // ----------------------------------------------------
 class PowerMonitorCardEditor extends HTMLElement {
   setConfig(config) {
@@ -632,13 +631,12 @@ class PowerMonitorCardEditor extends HTMLElement {
           { name: "power", label: "Power Sensor (W)", selector: { entity: { domain: "sensor" } } },
           {
             name: "secondary_info",
-            label: "Power Secondary Information",
+            label: "Power (W) Secondary Info",
             selector: {
               select: {
                 options: [
                   { value: "none", label: "None" },
-                  { value: "last-changed", label: "Last changed (Power Sensor)" },
-                  { value: "last-updated", label: "Last updated (Power Sensor)" },
+                  { value: "last-changed", label: "Last changed / updated (W)" },
                   { value: "entity-id", label: "Entity ID" }
                 ]
               }
@@ -673,7 +671,7 @@ class PowerMonitorCardEditor extends HTMLElement {
         const stateObj = this._hass?.states?.[dev.switch];
         const dispName = dev.name || stateObj?.attributes?.friendly_name || dev.switch || "ยังไม่ได้เลือกสวิตช์";
         const secInfoType = dev.secondary_info || "last-changed";
-        const subInfo = secInfoType !== "none" ? `[Power: ${secInfoType}]` : "";
+        const subInfo = secInfoType !== "none" && dev.power ? `[W: ${secInfoType}]` : "";
         const subText = dev.switch ? `${dev.switch} ${dev.power ? `• ${dev.power}` : ""} ${subInfo}` : "คลิกดินสอเพื่อตั้งค่า";
         const icon = dev.icon || stateObj?.attributes?.icon || "mdi:flash";
 
@@ -764,6 +762,6 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "power-monitor-card",
   name: "Power Monitor Card (Slim List)",
-  description: "Ultra-compact switch and power card with native sortable and power sensor secondary info",
+  description: "Ultra-compact switch and power card with power sensor secondary info and native sorting",
   preview: true
 });
