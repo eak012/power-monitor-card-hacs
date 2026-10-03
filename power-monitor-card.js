@@ -11,10 +11,7 @@ class PowerMonitorCard extends HTMLElement {
       devices: [
         { name: "Air Living", switch: "switch.airlivbk", power: "sensor.airlivbk_power", icon: "mdi:sofa" },
         { name: "Air Bed", switch: "switch.airbedr_airbedroom", power: "sensor.airbedr_energy_power", icon: "mdi:bed" },
-        { name: "Air Small Bed", switch: "switch.secondbedroom", power: "sensor.secondbedroom_power", icon: "mdi:bed-outline" },
-        { name: "Water Pump", switch: "switch.pump_plug", power: "sensor.pump_plug_power", icon: "mdi:water-pump" },
-        { name: "Solar Meter", switch: "switch.solarmeter", power: "", icon: "mdi:solar-power-variant" },
-        { name: "O₂", switch: "switch.o2", power: "sensor.o2_power", icon: "mdi:air-filter" }
+        { name: "Water Pump", switch: "switch.pump_plug", power: "sensor.pump_plug_power", icon: "mdi:water-pump" }
       ]
     };
   }
@@ -80,18 +77,15 @@ class PowerMonitorCard extends HTMLElement {
 
       return `
         <div class="row ${isOn ? "on" : "off"}" data-switch="${dev.switch}">
-          <!-- คอลัมน์ 1: ไอคอน + ชื่ออุปกรณ์ -->
           <div class="col-name">
             <ha-icon class="row-icon" icon="${icon}"></ha-icon>
             <span class="row-title">${this._escape(name)}</span>
           </div>
 
-          <!-- คอลัมน์ 2: ค่าพลังงานวัตต์ (W) -->
           <div class="col-power">
             ${dev.power ? `<span class="val-w">${this._formatW(powerVal)}</span>` : '<span class="val-none">—</span>'}
           </div>
 
-          <!-- คอลัมน์ 3: สวิตช์ On/Off -->
           <div class="col-switch">
             <ha-switch 
               ${isOn ? "checked" : ""} 
@@ -106,13 +100,12 @@ class PowerMonitorCard extends HTMLElement {
       <style>
         :host {
           display: block;
-          /* สีที่เข้าใจง่ายและใช้ค่าตามธีม */
-          --color-on: #10b981;       /* เขียว สดใส สำหรับสถานะเปิด */
-          --color-watt: #f59e0b;     /* ส้มอำพัน ชัดเจนสำหรับค่าวัตต์ */
-          --color-main: #0ea5e9;     /* ฟ้าสว่าง สำหรับ Main Power */
-          --text-main: var(--primary-text-color, #f8fafc);
+          --color-on: #10b981;
+          --color-watt: #f59e0b;
+          --color-main: #38bdf8;
+          --text-main: var(--primary-text-color, #e2e8f0);
           --text-sub: var(--secondary-text-color, #94a3b8);
-          --line-border: var(--divider-color, rgba(255, 255, 255, 0.08));
+          --line-border: var(--divider-color, rgba(255, 255, 255, 0.07));
         }
 
         ha-card {
@@ -120,56 +113,53 @@ class PowerMonitorCard extends HTMLElement {
           box-shadow: none;
           border: none;
           color: var(--text-main);
-          padding: 4px 6px;
+          padding: 2px 4px;
         }
 
-        /* ส่วนหัวและ Main Power แบบแถวเดียว ไม่เปลืองที่ */
         .header-bar {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 6px 8px 10px;
+          padding: 4px 6px 6px;
           border-bottom: 1px solid var(--line-border);
-          margin-bottom: 4px;
+          margin-bottom: 2px;
         }
 
         .header-title {
-          font-size: 14px;
-          font-weight: 700;
-          letter-spacing: 0.3px;
+          font-size: 13px;
+          font-weight: 500;
+          letter-spacing: 0.2px;
           color: var(--text-sub);
-          text-transform: uppercase;
         }
 
         .header-main-power {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 8px;
         }
 
         .main-val {
-          font-size: 18px;
-          font-weight: 800;
+          font-size: 16px;
+          font-weight: 600;
           color: var(--color-main);
+          font-variant-numeric: tabular-nums;
         }
 
-        /* โครงสร้างแถว Compact Row */
         .row-list {
           display: flex;
           flex-direction: column;
-          gap: 2px; /* ลดช่องว่างระหว่างแถวให้แคบมากที่สุด */
+          gap: 1px;
         }
 
         .row {
           display: grid;
           grid-template-columns: minmax(0, 1fr) auto auto;
           align-items: center;
-          gap: 10px;
-          padding: 4px 8px; /* ปรับลด padding แนวตั้งให้แบนราบ */
-          border-radius: 8px;
+          gap: 8px;
+          padding: 2px 6px;
+          border-radius: 6px;
           transition: background 0.15s ease;
-          min-height: 38px;
-          border-bottom: 1px solid rgba(125, 125, 125, 0.05);
+          min-height: 32px;
         }
 
         .row:hover {
@@ -177,71 +167,70 @@ class PowerMonitorCard extends HTMLElement {
         }
 
         .row.on {
-          background: color-mix(in srgb, var(--color-on) 5%, transparent);
+          background: color-mix(in srgb, var(--color-on) 4%, transparent);
         }
 
-        /* คอลัมน์ 1: ไอคอน + ชื่อ */
         .col-name {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
           min-width: 0;
         }
 
         .row-icon {
-          --mdc-icon-size: 19px;
+          --mdc-icon-size: 17px;
           color: var(--text-sub);
           flex-shrink: 0;
+          opacity: 0.85;
         }
 
         .row.on .row-icon {
           color: var(--color-on);
+          opacity: 1;
         }
 
         .row-title {
-          font-size: 13.5px;
-          font-weight: 500;
+          font-size: 13px;
+          font-weight: 400;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
-        /* คอลัมน์ 2: กำลังไฟฟ้า W */
         .col-power {
-          min-width: 75px;
+          min-width: 68px;
           text-align: right;
           font-variant-numeric: tabular-nums;
         }
 
         .val-w {
-          font-size: 14.5px;
-          font-weight: 700;
+          font-size: 13.5px;
+          font-weight: 500;
           color: var(--color-watt);
         }
 
         .row.off .val-w {
           color: var(--text-sub);
-          opacity: 0.4;
+          opacity: 0.35;
         }
 
         .val-none {
           color: var(--text-sub);
-          opacity: 0.3;
-          font-size: 12px;
+          opacity: 0.25;
+          font-size: 11px;
         }
 
-        /* คอลัมน์ 3: สวิตช์ */
         .col-switch {
           display: flex;
           align-items: center;
           justify-content: flex-end;
-          width: 44px;
+          width: 40px;
         }
 
         ha-switch {
           --switch-checked-button-color: var(--color-on);
-          --switch-checked-track-color: color-mix(in srgb, var(--color-on) 40%, transparent);
-          transform: scale(0.78);
+          --switch-checked-track-color: color-mix(in srgb, var(--color-on) 35%, transparent);
+          transform: scale(0.72);
           transform-origin: right center;
         }
       </style>
@@ -266,7 +255,6 @@ class PowerMonitorCard extends HTMLElement {
       </ha-card>
     `;
 
-    // ผูก Event สวิตช์แต่ละแถว
     this.shadowRoot.querySelectorAll(".col-switch ha-switch").forEach((sw) => {
       sw.addEventListener("click", (e) => e.stopPropagation());
       sw.addEventListener("change", () => this._toggle(sw.dataset.switch));
@@ -288,48 +276,326 @@ class PowerMonitorCard extends HTMLElement {
 }
 
 // ----------------------------------------------------
-// Visual Form Editor
+// Visual Form Editor สไตล์ Native HA Entities Card
 // ----------------------------------------------------
 class PowerMonitorCardEditor extends HTMLElement {
   setConfig(config) {
-    this._config = config;
+    this._config = {
+      title: "Switch & Power Monitor",
+      main_power: "",
+      main_switch: "",
+      devices: [],
+      ...config
+    };
+    this._editIndex = null;
     this._render();
   }
 
   set hass(hass) {
     this._hass = hass;
-    if (this._form) this._form.hass = hass;
+    if (this._formHeader) this._formHeader.hass = hass;
+    if (this._editForm) this._editForm.hass = hass;
   }
 
   _render() {
-    if (!this._form) {
-      this.innerHTML = "";
-      this._form = document.createElement("ha-form");
-      this._form.addEventListener("value-changed", (ev) => {
-        const event = new CustomEvent("config-changed", {
-          detail: { config: ev.detail.value },
-          bubbles: true,
-          composed: true
-        });
-        this.dispatchEvent(event);
-      });
-      this.appendChild(this._form);
-    }
+    this.innerHTML = `
+      <style>
+        .editor-container {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          padding: 4px 0;
+          font-family: inherit;
+        }
 
-    if (this._hass) this._form.hass = this._hass;
+        .label-heading {
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--primary-text-color);
+          margin-bottom: 6px;
+        }
 
-    this._form.schema = [
-      { name: "title", label: "Card Title", selector: { text: {} } },
+        /* รายการแบบการ์ดแถวเดียว ตามแบบหน้า Entities Card HA */
+        .entities-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .entity-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          background: rgba(125, 125, 125, 0.08);
+          border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.1));
+          border-radius: 8px;
+          padding: 8px 12px;
+        }
+
+        .drag-handle {
+          color: var(--secondary-text-color);
+          font-size: 18px;
+          line-height: 1;
+          user-select: none;
+        }
+
+        .entity-content {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .entity-icon {
+          --mdc-icon-size: 20px;
+          color: var(--secondary-text-color);
+        }
+
+        .entity-details {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          flex: 1;
+        }
+
+        .entity-main-text {
+          font-size: 13.5px;
+          font-weight: 500;
+          color: var(--primary-text-color);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .entity-sub-text {
+          font-size: 11px;
+          color: var(--secondary-text-color);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .row-actions {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .btn-action {
+          cursor: pointer;
+          color: var(--secondary-text-color);
+          padding: 4px;
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: 0.15s;
+        }
+
+        .btn-action:hover {
+          color: var(--primary-text-color);
+          background: rgba(125, 125, 125, 0.15);
+        }
+
+        .btn-action.del:hover {
+          color: var(--error-color, #ef4444);
+        }
+
+        /* ปุ่มเพิ่มแบบกล่องประจุด้านล่าง */
+        .btn-add-item {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 9px;
+          border-radius: 8px;
+          border: 1px dashed var(--divider-color, rgba(255, 255, 255, 0.2));
+          color: var(--primary-text-color);
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 500;
+          background: transparent;
+          margin-top: 4px;
+        }
+
+        .btn-add-item:hover {
+          background: rgba(125, 125, 125, 0.05);
+          border-color: var(--primary-color);
+        }
+
+        /* Modal / Panel สำหรับแก้ไขรายละเอียดอุปกรณ์ */
+        .edit-panel {
+          border: 1px solid var(--primary-color);
+          background: rgba(125, 125, 125, 0.05);
+          border-radius: 10px;
+          padding: 12px;
+          margin: 6px 0;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .edit-panel-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 13px;
+          font-weight: 600;
+        }
+      </style>
+
+      <div class="editor-container">
+        <!-- ค่าคอนฟิกหลัก -->
+        <div id="form-header-container"></div>
+
+        <!-- รายการ Entities (required) สไตล์ HA -->
+        <div>
+          <div class="label-heading">Entities (required)</div>
+          
+          <div class="entities-list" id="entities-list"></div>
+
+          <button type="button" class="btn-add-item" id="btn-add-row">
+            <ha-icon icon="mdi:plus" style="--mdc-icon-size: 18px;"></ha-icon> เพิ่ม Entity
+          </button>
+        </div>
+      </div>
+    `;
+
+    // 1. เรนเดอร์ Header Form (Title, Main Power, Main Switch)
+    const headerContainer = this.querySelector("#form-header-container");
+    this._formHeader = document.createElement("ha-form");
+    if (this._hass) this._formHeader.hass = this._hass;
+
+    this._formHeader.schema = [
+      { name: "title", label: "Title", selector: { text: {} } },
       { name: "main_power", label: "Main Power Sensor", selector: { entity: { domain: "sensor" } } },
-      { name: "main_switch", label: "Main Switch", selector: { entity: { domain: ["switch", "light", "input_boolean"] } } },
-      {
-        name: "devices",
-        label: "Devices List (Switch + Power)",
-        selector: { object: {} }
-      }
+      { name: "main_switch", label: "Main Switch", selector: { entity: { domain: ["switch", "light", "input_boolean"] } } }
     ];
 
-    this._form.data = this._config;
+    this._formHeader.data = {
+      title: this._config.title,
+      main_power: this._config.main_power,
+      main_switch: this._config.main_switch
+    };
+
+    this._formHeader.addEventListener("value-changed", (ev) => {
+      this._updateConfig({ ...ev.detail.value });
+    });
+    headerContainer.appendChild(this._formHeader);
+
+    // 2. เรนเดอร์ Entities Rows ตามแบบหน้าจอเป๊ะๆ
+    const listContainer = this.querySelector("#entities-list");
+    (this._config.devices || []).forEach((dev, idx) => {
+      if (this._editIndex === idx) {
+        // แถบกำลังกดแก้ไข (Expanded Edit Panel)
+        const editBox = document.createElement("div");
+        editBox.className = "edit-panel";
+
+        editBox.innerHTML = `
+          <div class="edit-panel-header">
+            <span>แก้ไข: ${this._escape(dev.name || dev.switch || "อุปกรณ์")}</span>
+            <ha-icon class="btn-action" id="close-edit" icon="mdi:check" title="เสร็จสิ้น"></ha-icon>
+          </div>
+          <div id="edit-form-wrap"></div>
+        `;
+
+        const editForm = document.createElement("ha-form");
+        if (this._hass) editForm.hass = this._hass;
+        editForm.schema = [
+          { name: "name", label: "Name", selector: { text: {} } },
+          { name: "switch", label: "Switch Entity", selector: { entity: { domain: ["switch", "light", "input_boolean"] } } },
+          { name: "power", label: "Power Sensor (W)", selector: { entity: { domain: "sensor" } } },
+          { name: "icon", label: "Icon", selector: { icon: {} } }
+        ];
+        editForm.data = dev;
+        editForm.addEventListener("value-changed", (ev) => {
+          const newDevices = [...this._config.devices];
+          newDevices[idx] = ev.detail.value;
+          this._updateConfig({ devices: newDevices }, false);
+        });
+
+        editBox.querySelector("#edit-form-wrap").appendChild(editForm);
+        editBox.querySelector("#close-edit").addEventListener("click", () => {
+          this._editIndex = null;
+          this._render();
+        });
+
+        listContainer.appendChild(editBox);
+      } else {
+        // แถวปกติ สไตล์ HA [ = ] [ icon | name | sub ] [ X ] [ ✏️ ]
+        const row = document.createElement("div");
+        row.className = "entity-row";
+
+        const stateObj = this._hass?.states?.[dev.switch];
+        const dispName = dev.name || stateObj?.attributes?.friendly_name || dev.switch || "ยังไม่ได้เลือกสวิตช์";
+        const subText = dev.switch ? `${dev.switch} ${dev.power ? `• ${dev.power}` : ""}` : "คลิกที่ดินสอเพื่อเลือก Entity";
+        const icon = dev.icon || stateObj?.attributes?.icon || "mdi:flash";
+
+        row.innerHTML = `
+          <span class="drag-handle">＝</span>
+          <div class="entity-content">
+            <ha-icon class="entity-icon" icon="${icon}"></ha-icon>
+            <div class="entity-details">
+              <span class="entity-main-text">${this._escape(dispName)}</span>
+              <span class="entity-sub-text">${this._escape(subText)}</span>
+            </div>
+          </div>
+          <div class="row-actions">
+            <ha-icon class="btn-action del" icon="mdi:close" data-index="${idx}" title="ลบ"></ha-icon>
+            <ha-icon class="btn-action edit" icon="mdi:pencil" data-index="${idx}" title="แก้ไข"></ha-icon>
+          </div>
+        `;
+
+        row.querySelector(".del").addEventListener("click", (e) => {
+          e.stopPropagation();
+          const newDevices = [...this._config.devices];
+          newDevices.splice(idx, 1);
+          if (this._editIndex === idx) this._editIndex = null;
+          this._updateConfig({ devices: newDevices });
+          this._render();
+        });
+
+        row.querySelector(".edit").addEventListener("click", (e) => {
+          e.stopPropagation();
+          this._editIndex = idx;
+          this._render();
+        });
+
+        listContainer.appendChild(row);
+      }
+    });
+
+    // Event: ปุ่มเพิ่ม Entity
+    const btnAdd = this.querySelector("#btn-add-row");
+    if (btnAdd) {
+      btnAdd.addEventListener("click", () => {
+        const newDevices = [
+          ...(this._config.devices || []),
+          { name: "", switch: "", power: "", icon: "" }
+        ];
+        this._editIndex = newDevices.length - 1; // เปิดหน้าต่างกรอกทันทีที่เพิ่ม
+        this._updateConfig({ devices: newDevices });
+        this._render();
+      });
+    }
+  }
+
+  _updateConfig(patch, triggerRender = true) {
+    this._config = { ...this._config, ...patch };
+    const event = new CustomEvent("config-changed", {
+      detail: { config: this._config },
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
+  }
+
+  _escape(str) {
+    return String(str ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;");
   }
 }
 
@@ -339,7 +605,7 @@ customElements.define("power-monitor-card", PowerMonitorCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "power-monitor-card",
-  name: "Power Monitor Card (Compact List)",
-  description: "Ultra-compact row-based switch and power monitor",
+  name: "Power Monitor Card (Slim List)",
+  description: "Ultra-compact switch and power card with native HA entities card editor style",
   preview: true
 });
