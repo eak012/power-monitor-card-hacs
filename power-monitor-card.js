@@ -14,7 +14,7 @@ class PowerMonitorCard extends HTMLElement {
         { name: "Air Small Bed", switch: "switch.secondbedroom", power: "sensor.secondbedroom_power", icon: "mdi:bed-outline" },
         { name: "Water Pump", switch: "switch.pump_plug", power: "sensor.pump_plug_power", icon: "mdi:water-pump" },
         { name: "Solar Meter", switch: "switch.solarmeter", power: "", icon: "mdi:solar-power-variant" },
-        { name: "O₂ Air", switch: "switch.o2", power: "sensor.o2_power", icon: "mdi:air-filter" }
+        { name: "O₂", switch: "switch.o2", power: "sensor.o2_power", icon: "mdi:air-filter" }
       ]
     };
   }
@@ -38,7 +38,7 @@ class PowerMonitorCard extends HTMLElement {
   }
 
   getCardSize() {
-    return (this._config?.devices?.length || 1) + 2;
+    return 3;
   }
 
   _val(entityId) {
@@ -53,7 +53,7 @@ class PowerMonitorCard extends HTMLElement {
   }
 
   _formatW(val) {
-    if (val === null || val === undefined) return "— W";
+    if (val === null || val === undefined) return "—";
     if (Math.abs(val) >= 1000) return `${(val / 1000).toFixed(2)} kW`;
     return `${Math.round(val)} W`;
   }
@@ -79,32 +79,20 @@ class PowerMonitorCard extends HTMLElement {
       const icon = dev.icon || stateObj?.attributes?.icon || "mdi:flash";
 
       return `
-        <div class="row-item ${isOn ? "on" : "off"}" data-switch="${dev.switch}">
-          <!-- ฝั่งซ้าย: ไอคอน + ชื่ออุปกรณ์ -->
-          <div class="device-col">
-            <div class="icon-wrap">
-              <ha-icon icon="${icon}"></ha-icon>
-            </div>
-            <div class="text-wrap">
-              <div class="device-name">${this._escape(name)}</div>
-              <div class="status-badge">
-                <span class="dot"></span>
-                <span>${isOn ? "ON" : "OFF"}</span>
-              </div>
-            </div>
+        <div class="row ${isOn ? "on" : "off"}" data-switch="${dev.switch}">
+          <!-- คอลัมน์ 1: ไอคอน + ชื่ออุปกรณ์ -->
+          <div class="col-name">
+            <ha-icon class="row-icon" icon="${icon}"></ha-icon>
+            <span class="row-title">${this._escape(name)}</span>
           </div>
 
-          <!-- ตรงกลาง: ค่าวัตต์ -->
-          <div class="power-col">
-            ${dev.power ? `
-              <span class="power-val">${this._formatW(powerVal)}</span>
-            ` : `
-              <span class="no-power">—</span>
-            `}
+          <!-- คอลัมน์ 2: ค่าพลังงานวัตต์ (W) -->
+          <div class="col-power">
+            ${dev.power ? `<span class="val-w">${this._formatW(powerVal)}</span>` : '<span class="val-none">—</span>'}
           </div>
 
-          <!-- ฝั่งขวา: สวิตช์ On / Off -->
-          <div class="switch-col">
+          <!-- คอลัมน์ 3: สวิตช์ On/Off -->
+          <div class="col-switch">
             <ha-switch 
               ${isOn ? "checked" : ""} 
               data-switch="${dev.switch}">
@@ -118,244 +106,177 @@ class PowerMonitorCard extends HTMLElement {
       <style>
         :host {
           display: block;
-          --c-green: #10b981;
-          --c-amber: #f59e0b;
-          --c-blue: #0ea5e9;
-          --c-text: var(--primary-text-color, #f8fafc);
-          --c-sub: var(--secondary-text-color, #94a3b8);
-          --c-border: var(--divider-color, rgba(255, 255, 255, 0.08));
+          /* สีที่เข้าใจง่ายและใช้ค่าตามธีม */
+          --color-on: #10b981;       /* เขียว สดใส สำหรับสถานะเปิด */
+          --color-watt: #f59e0b;     /* ส้มอำพัน ชัดเจนสำหรับค่าวัตต์ */
+          --color-main: #0ea5e9;     /* ฟ้าสว่าง สำหรับ Main Power */
+          --text-main: var(--primary-text-color, #f8fafc);
+          --text-sub: var(--secondary-text-color, #94a3b8);
+          --line-border: var(--divider-color, rgba(255, 255, 255, 0.08));
         }
 
         ha-card {
           background: transparent;
           box-shadow: none;
           border: none;
-          color: var(--c-text);
-          padding: 8px 4px;
+          color: var(--text-main);
+          padding: 4px 6px;
         }
 
-        .header-title {
-          font-size: 15px;
-          font-weight: 700;
-          letter-spacing: 0.5px;
-          text-transform: uppercase;
-          color: var(--c-sub);
-          margin-bottom: 12px;
-          padding: 0 8px;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        /* Top Summary Bar */
-        .summary-bar {
+        /* ส่วนหัวและ Main Power แบบแถวเดียว ไม่เปลืองที่ */
+        .header-bar {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          background: rgba(125, 125, 125, 0.06);
-          border: 1px solid var(--c-border);
-          border-radius: 14px;
-          padding: 10px 16px;
-          margin: 0 4px 12px 4px;
+          padding: 6px 8px 10px;
+          border-bottom: 1px solid var(--line-border);
+          margin-bottom: 4px;
         }
 
-        .summary-info {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .summary-val {
-          font-size: 20px;
-          font-weight: 800;
-          color: var(--c-blue);
-        }
-
-        .summary-lbl {
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--c-sub);
+        .header-title {
+          font-size: 14px;
+          font-weight: 700;
+          letter-spacing: 0.3px;
+          color: var(--text-sub);
           text-transform: uppercase;
         }
 
-        .main-switch-wrap {
+        .header-main-power {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 12px;
         }
 
-        /* Rows Container */
-        .rows-list {
+        .main-val {
+          font-size: 18px;
+          font-weight: 800;
+          color: var(--color-main);
+        }
+
+        /* โครงสร้างแถว Compact Row */
+        .row-list {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 2px; /* ลดช่องว่างระหว่างแถวให้แคบมากที่สุด */
         }
 
-        /* Single Row Item: 3 คอลัมน์ชัดเจน */
-        .row-item {
+        .row {
           display: grid;
-          grid-template-columns: 1fr auto auto;
+          grid-template-columns: minmax(0, 1fr) auto auto;
           align-items: center;
-          gap: 12px;
-          padding: 10px 14px;
-          border-radius: 14px;
-          border: 1px solid var(--c-border);
+          gap: 10px;
+          padding: 4px 8px; /* ปรับลด padding แนวตั้งให้แบนราบ */
+          border-radius: 8px;
+          transition: background 0.15s ease;
+          min-height: 38px;
+          border-bottom: 1px solid rgba(125, 125, 125, 0.05);
+        }
+
+        .row:hover {
           background: rgba(125, 125, 125, 0.04);
-          transition: background 0.2s ease, border-color 0.2s ease;
-          cursor: pointer;
         }
 
-        .row-item.on {
-          background: color-mix(in srgb, var(--c-green) 6%, transparent);
-          border-color: color-mix(in srgb, var(--c-green) 35%, var(--c-border));
+        .row.on {
+          background: color-mix(in srgb, var(--color-on) 5%, transparent);
         }
 
-        /* Col 1: Icon + Name */
-        .device-col {
+        /* คอลัมน์ 1: ไอคอน + ชื่อ */
+        .col-name {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
           min-width: 0;
         }
 
-        .icon-wrap {
-          width: 36px;
-          height: 36px;
-          flex: 0 0 36px;
-          display: grid;
-          place-items: center;
-          border-radius: 10px;
-          background: rgba(125, 125, 125, 0.08);
-          color: var(--c-sub);
-          transition: 0.2s;
+        .row-icon {
+          --mdc-icon-size: 19px;
+          color: var(--text-sub);
+          flex-shrink: 0;
         }
 
-        .row-item.on .icon-wrap {
-          color: var(--c-green);
-          background: color-mix(in srgb, var(--c-green) 16%, transparent);
+        .row.on .row-icon {
+          color: var(--color-on);
         }
 
-        .text-wrap {
-          min-width: 0;
-        }
-
-        .device-name {
-          font-size: 14px;
-          font-weight: 600;
+        .row-title {
+          font-size: 13.5px;
+          font-weight: 500;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
-        .status-badge {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          font-size: 10px;
-          font-weight: 700;
-          color: var(--c-sub);
-          margin-top: 1px;
-        }
-
-        .dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: var(--c-sub);
-        }
-
-        .row-item.on .dot {
-          background: var(--c-green);
-          box-shadow: 0 0 6px var(--c-green);
-        }
-
-        .row-item.on .status-badge {
-          color: var(--c-green);
-        }
-
-        /* Col 2: Power (Watt) */
-        .power-col {
+        /* คอลัมน์ 2: กำลังไฟฟ้า W */
+        .col-power {
           min-width: 75px;
           text-align: right;
+          font-variant-numeric: tabular-nums;
         }
 
-        .power-val {
-          font-size: 16px;
+        .val-w {
+          font-size: 14.5px;
           font-weight: 700;
-          color: var(--c-amber);
+          color: var(--color-watt);
         }
 
-        .row-item.off .power-val {
-          color: var(--c-sub);
+        .row.off .val-w {
+          color: var(--text-sub);
           opacity: 0.4;
         }
 
-        .no-power {
-          color: var(--c-sub);
+        .val-none {
+          color: var(--text-sub);
           opacity: 0.3;
-          font-size: 14px;
+          font-size: 12px;
         }
 
-        /* Col 3: Switch */
-        .switch-col {
+        /* คอลัมน์ 3: สวิตช์ */
+        .col-switch {
           display: flex;
           align-items: center;
           justify-content: flex-end;
+          width: 44px;
         }
 
         ha-switch {
-          --switch-checked-button-color: var(--c-green);
-          --switch-checked-track-color: color-mix(in srgb, var(--c-green) 40%, transparent);
+          --switch-checked-button-color: var(--color-on);
+          --switch-checked-track-color: color-mix(in srgb, var(--color-on) 40%, transparent);
+          transform: scale(0.78);
+          transform-origin: right center;
         }
       </style>
 
       <ha-card>
-        <div class="header-title">
-          <ha-icon icon="mdi:lightning-bolt" style="--mdc-icon-size: 16px;"></ha-icon>
-          <span>${this._escape(cfg.title)}</span>
-        </div>
-
-        ${cfg.main_power || cfg.main_switch ? `
-          <div class="summary-bar">
-            <div class="summary-info">
-              <ha-icon icon="mdi:home-lightning-bolt" style="color:var(--c-blue);"></ha-icon>
-              <div>
-                <div class="summary-val">${this._formatW(mainPowerVal)}</div>
-                <div class="summary-lbl">Total Main Load</div>
-              </div>
-            </div>
+        <div class="header-bar">
+          <span class="header-title">${this._escape(cfg.title)}</span>
+          <div class="header-main-power">
+            ${cfg.main_power ? `<span class="main-val">${this._formatW(mainPowerVal)}</span>` : ""}
             ${cfg.main_switch ? `
-              <div class="main-switch-wrap">
-                <ha-switch class="main-switch" ${mainSwitchOn ? "checked" : ""}></ha-switch>
-              </div>
+              <ha-switch 
+                id="main-switch"
+                ${mainSwitchOn ? "checked" : ""}>
+              </ha-switch>
             ` : ""}
           </div>
-        ` : ""}
+        </div>
 
-        <div class="rows-list">
+        <div class="row-list">
           ${rows}
         </div>
       </ha-card>
     `;
 
-    // Event Listeners
-    this.shadowRoot.querySelectorAll(".row-item").forEach((row) => {
-      row.addEventListener("click", (e) => {
-        if (e.target.closest("ha-switch")) return;
-        this._toggle(row.dataset.switch);
-      });
+    // ผูก Event สวิตช์แต่ละแถว
+    this.shadowRoot.querySelectorAll(".col-switch ha-switch").forEach((sw) => {
+      sw.addEventListener("click", (e) => e.stopPropagation());
+      sw.addEventListener("change", () => this._toggle(sw.dataset.switch));
     });
 
-    this.shadowRoot.querySelectorAll("ha-switch").forEach((sw) => {
-      sw.addEventListener("click", (e) => e.stopPropagation());
-      sw.addEventListener("change", () => {
-        if (sw.classList.contains("main-switch")) {
-          this._toggle(cfg.main_switch);
-        } else {
-          this._toggle(sw.dataset.switch);
-        }
-      });
-    });
+    const mainSw = this.shadowRoot.querySelector("#main-switch");
+    if (mainSw) {
+      mainSw.addEventListener("click", (e) => e.stopPropagation());
+      mainSw.addEventListener("change", () => this._toggle(cfg.main_switch));
+    }
   }
 
   _escape(str) {
@@ -403,10 +324,8 @@ class PowerMonitorCardEditor extends HTMLElement {
       { name: "main_switch", label: "Main Switch", selector: { entity: { domain: ["switch", "light", "input_boolean"] } } },
       {
         name: "devices",
-        label: "Devices List",
-        selector: {
-          object: {}
-        }
+        label: "Devices List (Switch + Power)",
+        selector: { object: {} }
       }
     ];
 
@@ -420,7 +339,7 @@ customElements.define("power-monitor-card", PowerMonitorCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "power-monitor-card",
-  name: "Power Monitor Card (Row View)",
-  description: "Row layout switch and power monitor with theme transparency",
+  name: "Power Monitor Card (Compact List)",
+  description: "Ultra-compact row-based switch and power monitor",
   preview: true
 });
