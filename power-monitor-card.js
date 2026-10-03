@@ -6,7 +6,6 @@ class PowerMonitorCard extends HTMLElement {
   static getStubConfig() {
     return {
       title: "Switch & Power Monitor",
-      columns: 2,
       main_power: "sensor.main_power",
       main_switch: "switch.main",
       devices: [
@@ -23,7 +22,6 @@ class PowerMonitorCard extends HTMLElement {
   setConfig(config) {
     this._config = {
       title: "Switch & Power Monitor",
-      columns: 2,
       devices: [],
       ...config
     };
@@ -40,7 +38,7 @@ class PowerMonitorCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 4;
+    return (this._config?.devices?.length || 1) + 2;
   }
 
   _val(entityId) {
@@ -73,7 +71,7 @@ class PowerMonitorCard extends HTMLElement {
     const mainPowerVal = this._val(cfg.main_power);
     const mainSwitchOn = this._isOn(cfg.main_switch);
 
-    const deviceCards = (cfg.devices || []).map((dev, idx) => {
+    const rows = (cfg.devices || []).map((dev) => {
       const isOn = this._isOn(dev.switch);
       const powerVal = dev.power ? this._val(dev.power) : null;
       const stateObj = this._hass.states[dev.switch];
@@ -81,28 +79,36 @@ class PowerMonitorCard extends HTMLElement {
       const icon = dev.icon || stateObj?.attributes?.icon || "mdi:flash";
 
       return `
-        <div class="tile ${isOn ? "on" : "off"}" data-switch="${dev.switch}">
-          <div class="tile-header">
-            <div class="icon-box">
+        <div class="row-item ${isOn ? "on" : "off"}" data-switch="${dev.switch}">
+          <!-- ฝั่งซ้าย: ไอคอน + ชื่ออุปกรณ์ -->
+          <div class="device-col">
+            <div class="icon-wrap">
               <ha-icon icon="${icon}"></ha-icon>
             </div>
-            <div class="tile-title-group">
-              <span class="tile-name">${this._escape(name)}</span>
-              <span class="status-indicator">
-                <span class="pulse-dot"></span>
-                ${isOn ? "ON" : "OFF"}
-              </span>
+            <div class="text-wrap">
+              <div class="device-name">${this._escape(name)}</div>
+              <div class="status-badge">
+                <span class="dot"></span>
+                <span>${isOn ? "ON" : "OFF"}</span>
+              </div>
             </div>
+          </div>
+
+          <!-- ตรงกลาง: ค่าวัตต์ -->
+          <div class="power-col">
+            ${dev.power ? `
+              <span class="power-val">${this._formatW(powerVal)}</span>
+            ` : `
+              <span class="no-power">—</span>
+            `}
+          </div>
+
+          <!-- ฝั่งขวา: สวิตช์ On / Off -->
+          <div class="switch-col">
             <ha-switch 
-              class="tile-switch" 
               ${isOn ? "checked" : ""} 
               data-switch="${dev.switch}">
             </ha-switch>
-          </div>
-          <div class="tile-body">
-            <div class="power-metric">
-              ${dev.power ? this._formatW(powerVal) : '<span class="no-power">SWITCH ONLY</span>'}
-            </div>
           </div>
         </div>
       `;
@@ -112,262 +118,244 @@ class PowerMonitorCard extends HTMLElement {
       <style>
         :host {
           display: block;
-          --active-green: #10b981;
-          --watt-amber: #f59e0b;
-          --main-blue: #0ea5e9;
-          --text-main: var(--primary-text-color, #f8fafc);
-          --text-sub: var(--secondary-text-color, #94a3b8);
-          --card-border: var(--divider-color, rgba(255, 255, 255, 0.08));
+          --c-green: #10b981;
+          --c-amber: #f59e0b;
+          --c-blue: #0ea5e9;
+          --c-text: var(--primary-text-color, #f8fafc);
+          --c-sub: var(--secondary-text-color, #94a3b8);
+          --c-border: var(--divider-color, rgba(255, 255, 255, 0.08));
         }
 
         ha-card {
           background: transparent;
           box-shadow: none;
           border: none;
-          color: var(--text-main);
-          padding: 8px;
+          color: var(--c-text);
+          padding: 8px 4px;
         }
 
-        .title-bar {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 16px;
+        .header-title {
+          font-size: 15px;
           font-weight: 700;
           letter-spacing: 0.5px;
           text-transform: uppercase;
-          color: var(--text-sub);
-          margin-bottom: 14px;
-          padding: 0 4px;
-        }
-
-        .top-dashboard {
-          display: grid;
-          grid-template-columns: 1.2fr 1fr;
-          gap: 12px;
-          margin-bottom: 16px;
-        }
-
-        .summary-card {
-          background: rgba(125, 125, 125, 0.06);
-          border: 1px solid var(--card-border);
-          border-radius: 16px;
-          padding: 14px 16px;
-          backdrop-filter: blur(8px);
-        }
-
-        .summary-card.interactive {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          cursor: pointer;
-        }
-
-        .summary-label {
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--text-sub);
-          text-transform: uppercase;
-          letter-spacing: 0.6px;
-          margin-bottom: 4px;
+          color: var(--c-sub);
+          margin-bottom: 12px;
+          padding: 0 8px;
           display: flex;
           align-items: center;
           gap: 6px;
         }
 
-        .summary-val {
-          font-size: 24px;
-          font-weight: 800;
-          color: var(--main-blue);
-          line-height: 1.1;
+        /* Top Summary Bar */
+        .summary-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: rgba(125, 125, 125, 0.06);
+          border: 1px solid var(--c-border);
+          border-radius: 14px;
+          padding: 10px 16px;
+          margin: 0 4px 12px 4px;
         }
 
-        .grid {
-          display: grid;
-          grid-template-columns: repeat(${Math.max(1, Number(cfg.columns) || 2)}, minmax(0, 1fr));
+        .summary-info {
+          display: flex;
+          align-items: center;
           gap: 12px;
         }
 
-        .tile {
-          background: rgba(125, 125, 125, 0.05);
-          border: 1px solid var(--card-border);
-          border-radius: 16px;
-          padding: 14px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          transition: all 0.25s ease;
-          cursor: pointer;
-          min-width: 0;
+        .summary-val {
+          font-size: 20px;
+          font-weight: 800;
+          color: var(--c-blue);
         }
 
-        .tile.on {
-          background: color-mix(in srgb, var(--active-green) 7%, transparent);
-          border-color: color-mix(in srgb, var(--active-green) 40%, var(--card-border));
+        .summary-lbl {
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--c-sub);
+          text-transform: uppercase;
         }
 
-        .tile-header {
+        .main-switch-wrap {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
         }
 
-        .icon-box {
-          width: 38px;
-          height: 38px;
-          flex: 0 0 38px;
+        /* Rows Container */
+        .rows-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        /* Single Row Item: 3 คอลัมน์ชัดเจน */
+        .row-item {
           display: grid;
-          place-items: center;
-          border-radius: 12px;
-          background: rgba(125, 125, 125, 0.1);
-          color: var(--text-sub);
-          transition: 0.2s ease;
+          grid-template-columns: 1fr auto auto;
+          align-items: center;
+          gap: 12px;
+          padding: 10px 14px;
+          border-radius: 14px;
+          border: 1px solid var(--c-border);
+          background: rgba(125, 125, 125, 0.04);
+          transition: background 0.2s ease, border-color 0.2s ease;
+          cursor: pointer;
         }
 
-        .tile.on .icon-box {
-          background: color-mix(in srgb, var(--active-green) 18%, transparent);
-          color: var(--active-green);
+        .row-item.on {
+          background: color-mix(in srgb, var(--c-green) 6%, transparent);
+          border-color: color-mix(in srgb, var(--c-green) 35%, var(--c-border));
         }
 
-        .tile-title-group {
-          flex: 1;
+        /* Col 1: Icon + Name */
+        .device-col {
+          display: flex;
+          align-items: center;
+          gap: 12px;
           min-width: 0;
         }
 
-        .tile-name {
-          display: block;
-          font-size: 13px;
+        .icon-wrap {
+          width: 36px;
+          height: 36px;
+          flex: 0 0 36px;
+          display: grid;
+          place-items: center;
+          border-radius: 10px;
+          background: rgba(125, 125, 125, 0.08);
+          color: var(--c-sub);
+          transition: 0.2s;
+        }
+
+        .row-item.on .icon-wrap {
+          color: var(--c-green);
+          background: color-mix(in srgb, var(--c-green) 16%, transparent);
+        }
+
+        .text-wrap {
+          min-width: 0;
+        }
+
+        .device-name {
+          font-size: 14px;
           font-weight: 600;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
-        .status-indicator {
+        .status-badge {
           display: flex;
           align-items: center;
-          gap: 5px;
+          gap: 4px;
           font-size: 10px;
           font-weight: 700;
-          color: var(--text-sub);
-          margin-top: 2px;
+          color: var(--c-sub);
+          margin-top: 1px;
         }
 
-        .pulse-dot {
+        .dot {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: var(--text-sub);
+          background: var(--c-sub);
         }
 
-        .tile.on .pulse-dot {
-          background: var(--active-green);
-          box-shadow: 0 0 6px var(--active-green);
+        .row-item.on .dot {
+          background: var(--c-green);
+          box-shadow: 0 0 6px var(--c-green);
         }
 
-        .tile.on .status-indicator {
-          color: var(--active-green);
+        .row-item.on .status-badge {
+          color: var(--c-green);
         }
 
-        .tile-switch {
-          --switch-checked-button-color: var(--active-green);
-          --switch-checked-track-color: color-mix(in srgb, var(--active-green) 40%, transparent);
-          transform: scale(0.85);
-          transform-origin: right center;
+        /* Col 2: Power (Watt) */
+        .power-col {
+          min-width: 75px;
+          text-align: right;
         }
 
-        .tile-body {
-          margin-top: 14px;
-        }
-
-        .power-metric {
-          font-size: 21px;
+        .power-val {
+          font-size: 16px;
           font-weight: 700;
-          letter-spacing: -0.5px;
-          color: var(--watt-amber);
+          color: var(--c-amber);
         }
 
-        .tile.off .power-metric {
-          color: var(--text-sub);
-          opacity: 0.45;
+        .row-item.off .power-val {
+          color: var(--c-sub);
+          opacity: 0.4;
         }
 
         .no-power {
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--text-sub);
-          opacity: 0.6;
-          letter-spacing: 0.5px;
+          color: var(--c-sub);
+          opacity: 0.3;
+          font-size: 14px;
         }
 
-        @media (max-width: 440px) {
-          .top-dashboard {
-            grid-template-columns: 1fr;
-          }
-          .grid {
-            grid-template-columns: 1fr;
-          }
+        /* Col 3: Switch */
+        .switch-col {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+        }
+
+        ha-switch {
+          --switch-checked-button-color: var(--c-green);
+          --switch-checked-track-color: color-mix(in srgb, var(--c-green) 40%, transparent);
         }
       </style>
 
       <ha-card>
-        <div class="title-bar">
-          <ha-icon icon="mdi:lightning-bolt"></ha-icon>
+        <div class="header-title">
+          <ha-icon icon="mdi:lightning-bolt" style="--mdc-icon-size: 16px;"></ha-icon>
           <span>${this._escape(cfg.title)}</span>
         </div>
 
         ${cfg.main_power || cfg.main_switch ? `
-          <div class="top-dashboard">
-            ${cfg.main_power ? `
-              <div class="summary-card">
-                <div class="summary-label">
-                  <ha-icon icon="mdi:flash-outline" style="--mdc-icon-size: 14px;"></ha-icon>
-                  Total Load Now
-                </div>
+          <div class="summary-bar">
+            <div class="summary-info">
+              <ha-icon icon="mdi:home-lightning-bolt" style="color:var(--c-blue);"></ha-icon>
+              <div>
                 <div class="summary-val">${this._formatW(mainPowerVal)}</div>
+                <div class="summary-lbl">Total Main Load</div>
               </div>
-            ` : ""}
-
+            </div>
             ${cfg.main_switch ? `
-              <div class="summary-card interactive" id="main-switch-tile">
-                <div>
-                  <div class="summary-label">
-                    <ha-icon icon="mdi:home-lightning-bolt" style="--mdc-icon-size: 14px;"></ha-icon>
-                    Main Power
-                  </div>
-                  <div style="font-weight:700; font-size:16px; color:${mainSwitchOn ? "var(--active-green)" : "var(--text-sub)"}">
-                    ${mainSwitchOn ? "CONNECTED (ON)" : "OFF"}
-                  </div>
-                </div>
-                <ha-switch ${mainSwitchOn ? "checked" : ""}></ha-switch>
+              <div class="main-switch-wrap">
+                <ha-switch class="main-switch" ${mainSwitchOn ? "checked" : ""}></ha-switch>
               </div>
             ` : ""}
           </div>
         ` : ""}
 
-        <div class="grid">
-          ${deviceCards}
+        <div class="rows-list">
+          ${rows}
         </div>
       </ha-card>
     `;
 
-    // Event Bindings
-    this.shadowRoot.querySelectorAll(".tile").forEach((tile) => {
-      tile.addEventListener("click", (e) => {
+    // Event Listeners
+    this.shadowRoot.querySelectorAll(".row-item").forEach((row) => {
+      row.addEventListener("click", (e) => {
         if (e.target.closest("ha-switch")) return;
-        this._toggle(tile.dataset.switch);
+        this._toggle(row.dataset.switch);
       });
     });
 
-    this.shadowRoot.querySelectorAll(".tile-switch").forEach((sw) => {
+    this.shadowRoot.querySelectorAll("ha-switch").forEach((sw) => {
       sw.addEventListener("click", (e) => e.stopPropagation());
-      sw.addEventListener("change", () => this._toggle(sw.dataset.switch));
+      sw.addEventListener("change", () => {
+        if (sw.classList.contains("main-switch")) {
+          this._toggle(cfg.main_switch);
+        } else {
+          this._toggle(sw.dataset.switch);
+        }
+      });
     });
-
-    const mainTile = this.shadowRoot.querySelector("#main-switch-tile");
-    if (mainTile) {
-      mainTile.addEventListener("click", () => this._toggle(cfg.main_switch));
-    }
   }
 
   _escape(str) {
@@ -378,9 +366,9 @@ class PowerMonitorCard extends HTMLElement {
   }
 }
 
-// ------------------------------------------------------------------
-// Visual Editor Form
-// ------------------------------------------------------------------
+// ----------------------------------------------------
+// Visual Form Editor
+// ----------------------------------------------------
 class PowerMonitorCardEditor extends HTMLElement {
   setConfig(config) {
     this._config = config;
@@ -411,12 +399,11 @@ class PowerMonitorCardEditor extends HTMLElement {
 
     this._form.schema = [
       { name: "title", label: "Card Title", selector: { text: {} } },
-      { name: "columns", label: "Columns (1 - 4)", selector: { number: { min: 1, max: 4, mode: "box" } } },
-      { name: "main_power", label: "Main Total Power Sensor", selector: { entity: { domain: "sensor" } } },
+      { name: "main_power", label: "Main Power Sensor", selector: { entity: { domain: "sensor" } } },
       { name: "main_switch", label: "Main Switch", selector: { entity: { domain: ["switch", "light", "input_boolean"] } } },
       {
         name: "devices",
-        label: "Devices (Switch + Power Pairing)",
+        label: "Devices List",
         selector: {
           object: {}
         }
@@ -433,7 +420,7 @@ customElements.define("power-monitor-card", PowerMonitorCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "power-monitor-card",
-  name: "Power Monitor Card (Unified)",
-  description: "Unified Switch and Power Dashboard Card with Theme Transparency",
+  name: "Power Monitor Card (Row View)",
+  description: "Row layout switch and power monitor with theme transparency",
   preview: true
 });
