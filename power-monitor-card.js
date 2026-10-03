@@ -7,21 +7,24 @@ class PowerMonitorCard extends HTMLElement {
     return {
       title: "Switch & Power Monitor",
       columns: 2,
-      show_total: true,
-      show_main_switch: false,
-      entities: []
+      main_power: "sensor.main_power",
+      main_switch: "switch.main",
+      devices: [
+        { name: "Air Living", switch: "switch.airlivbk", power: "sensor.airlivbk_power", icon: "mdi:sofa" },
+        { name: "Air Bed", switch: "switch.airbedr_airbedroom", power: "sensor.airbedr_energy_power", icon: "mdi:bed" },
+        { name: "Air Small Bed", switch: "switch.secondbedroom", power: "sensor.secondbedroom_power", icon: "mdi:bed-outline" },
+        { name: "Water Pump", switch: "switch.pump_plug", power: "sensor.pump_plug_power", icon: "mdi:water-pump" },
+        { name: "Solar Meter", switch: "switch.solarmeter", power: "", icon: "mdi:solar-power-variant" },
+        { name: "O₂ Air", switch: "switch.o2", power: "sensor.o2_power", icon: "mdi:air-filter" }
+      ]
     };
   }
 
   setConfig(config) {
-    if (!config) throw new Error("Invalid configuration");
-
     this._config = {
       title: "Switch & Power Monitor",
       columns: 2,
-      show_total: true,
-      show_main_switch: false,
-      entities: [],
+      devices: [],
       ...config
     };
 
@@ -40,311 +43,267 @@ class PowerMonitorCard extends HTMLElement {
     return 4;
   }
 
-  _state(entity) {
-    return this._hass?.states?.[entity];
-  }
-
-  _friendlyName(entityId, fallback) {
-    const state = this._state(entityId);
-    return fallback || state?.attributes?.friendly_name || entityId;
-  }
-
-  _powerValue(entityId) {
-    const state = this._state(entityId);
-    if (!state) return null;
-    const value = Number.parseFloat(state.state);
-    return Number.isFinite(value) ? value : null;
-  }
-
-  _formatPower(value) {
-    if (value === null || value === undefined || !Number.isFinite(value)) {
-      return "— W";
-    }
-    if (Math.abs(value) >= 1000) {
-      return `${(value / 1000).toFixed(2)} kW`;
-    }
-    return `${Math.round(value)} W`;
-  }
-
-  _formatMainPower(value) {
-    if (value === null || value === undefined || !Number.isFinite(value)) {
-      return "—";
-    }
-    if (Math.abs(value) >= 1000) {
-      return `${(value / 1000).toFixed(2)} kW`;
-    }
-    return `${Math.round(value)} W`;
-  }
-
-  _icon(icon) {
-    return icon || "mdi:flash";
+  _val(entityId) {
+    if (!entityId || !this._hass?.states?.[entityId]) return null;
+    const v = parseFloat(this._hass.states[entityId].state);
+    return Number.isFinite(v) ? v : null;
   }
 
   _isOn(entityId) {
-    const state = this._state(entityId);
-    return ["on", "open", "active", "playing"].includes(state?.state);
+    if (!entityId || !this._hass?.states?.[entityId]) return false;
+    return ["on", "active", "open"].includes(this._hass.states[entityId].state);
+  }
+
+  _formatW(val) {
+    if (val === null || val === undefined) return "— W";
+    if (Math.abs(val) >= 1000) return `${(val / 1000).toFixed(2)} kW`;
+    return `${Math.round(val)} W`;
   }
 
   _toggle(entityId) {
     if (!this._hass || !entityId) return;
     const domain = entityId.split(".")[0];
-    if (!["switch", "light", "input_boolean"].includes(domain)) return;
     this._hass.callService(domain, "toggle", { entity_id: entityId });
   }
 
   _render() {
     if (!this.shadowRoot || !this._hass) return;
-
     const cfg = this._config;
-    const mainPower = cfg.main_power?.entity
-      ? this._powerValue(cfg.main_power.entity)
-      : null;
 
-    const cards = (cfg.entities || []).map((item, index) => {
-      const isOn = this._isOn(item.entity);
-      const power = item.power ? this._powerValue(item.power) : null;
-      const name = this._friendlyName(item.entity, item.name);
-      const icon = this._icon(item.icon);
+    const mainPowerVal = this._val(cfg.main_power);
+    const mainSwitchOn = this._isOn(cfg.main_switch);
+
+    const deviceCards = (cfg.devices || []).map((dev, idx) => {
+      const isOn = this._isOn(dev.switch);
+      const powerVal = dev.power ? this._val(dev.power) : null;
+      const stateObj = this._hass.states[dev.switch];
+      const name = dev.name || stateObj?.attributes?.friendly_name || dev.switch;
+      const icon = dev.icon || stateObj?.attributes?.icon || "mdi:flash";
 
       return `
-        <div class="device ${isOn ? "on" : "off"}" data-index="${index}">
-          <div class="device-top">
-            <div class="icon-wrap">
+        <div class="tile ${isOn ? "on" : "off"}" data-switch="${dev.switch}">
+          <div class="tile-header">
+            <div class="icon-box">
               <ha-icon icon="${icon}"></ha-icon>
             </div>
-            <div class="device-info">
-              <div class="name">${this._escape(name)}</div>
-              <div class="status">
-                <span class="dot"></span>
-                <span>${isOn ? "ON" : "OFF"}</span>
-              </div>
+            <div class="tile-title-group">
+              <span class="tile-name">${this._escape(name)}</span>
+              <span class="status-indicator">
+                <span class="pulse-dot"></span>
+                ${isOn ? "ON" : "OFF"}
+              </span>
             </div>
-            <ha-switch
-              class="device-switch"
-              ${isOn ? "checked" : ""}
-              data-index="${index}">
+            <ha-switch 
+              class="tile-switch" 
+              ${isOn ? "checked" : ""} 
+              data-switch="${dev.switch}">
             </ha-switch>
           </div>
-
-          <div class="power">
-            ${this._formatPower(power)}
+          <div class="tile-body">
+            <div class="power-metric">
+              ${dev.power ? this._formatW(powerVal) : '<span class="no-power">SWITCH ONLY</span>'}
+            </div>
           </div>
         </div>
       `;
     }).join("");
 
-    const mainSwitchEntity = cfg.main_switch?.entity;
-    const mainSwitchOn = mainSwitchEntity ? this._isOn(mainSwitchEntity) : false;
-
     this.shadowRoot.innerHTML = `
       <style>
         :host {
           display: block;
-          --pm-primary: var(--primary-color, #0284c7);
-          --pm-text: var(--primary-text-color, #f1f5f9);
-          --pm-secondary: var(--secondary-text-color, #94a3b8);
-          --pm-border: var(--divider-color, rgba(255, 255, 255, 0.12));
-          --pm-on-color: #10b981;
-          --pm-power-color: #f59e0b;
-          --pm-main-power: #38bdf8;
-          --pm-radius: 18px;
+          --active-green: #10b981;
+          --watt-amber: #f59e0b;
+          --main-blue: #0ea5e9;
+          --text-main: var(--primary-text-color, #f8fafc);
+          --text-sub: var(--secondary-text-color, #94a3b8);
+          --card-border: var(--divider-color, rgba(255, 255, 255, 0.08));
         }
 
         ha-card {
           background: transparent;
-          color: var(--pm-text);
-          border-radius: var(--pm-radius);
           box-shadow: none;
           border: none;
-          padding: 8px 4px;
+          color: var(--text-main);
+          padding: 8px;
         }
 
-        .header {
-          padding: 8px 12px 16px;
+        .title-bar {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 16px;
+          font-weight: 700;
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
+          color: var(--text-sub);
+          margin-bottom: 14px;
+          padding: 0 4px;
         }
 
-        .title-row {
+        .top-dashboard {
+          display: grid;
+          grid-template-columns: 1.2fr 1fr;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+
+        .summary-card {
+          background: rgba(125, 125, 125, 0.06);
+          border: 1px solid var(--card-border);
+          border-radius: 16px;
+          padding: 14px 16px;
+          backdrop-filter: blur(8px);
+        }
+
+        .summary-card.interactive {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          cursor: pointer;
         }
 
-        .title {
-          font-size: 17px;
-          font-weight: 600;
-          color: var(--pm-text);
-          opacity: 0.9;
-        }
-
-        .total {
-          margin-top: 6px;
-          font-size: 28px;
-          font-weight: 700;
-          line-height: 1.1;
-          letter-spacing: -0.5px;
-          color: var(--pm-main-power);
-        }
-
-        .total-label {
-          color: var(--pm-secondary);
+        .summary-label {
           font-size: 11px;
-          margin-top: 3px;
-          text-transform: uppercase;
           font-weight: 600;
-          letter-spacing: 0.8px;
+          color: var(--text-sub);
+          text-transform: uppercase;
+          letter-spacing: 0.6px;
+          margin-bottom: 4px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .summary-val {
+          font-size: 24px;
+          font-weight: 800;
+          color: var(--main-blue);
+          line-height: 1.1;
         }
 
         .grid {
           display: grid;
           grid-template-columns: repeat(${Math.max(1, Number(cfg.columns) || 2)}, minmax(0, 1fr));
-          gap: 10px;
-          padding: 0 4px 10px;
+          gap: 12px;
         }
 
-        .device {
-          min-width: 0;
+        .tile {
           background: rgba(125, 125, 125, 0.05);
-          border: 1px solid var(--pm-border);
-          border-radius: 14px;
-          padding: 12px;
-          box-sizing: border-box;
-          transition: border-color .2s ease, background .2s ease;
+          border: 1px solid var(--card-border);
+          border-radius: 16px;
+          padding: 14px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          transition: all 0.25s ease;
           cursor: pointer;
+          min-width: 0;
         }
 
-        .device.on {
-          border-color: color-mix(in srgb, var(--pm-on-color) 45%, var(--pm-border));
-          background: color-mix(in srgb, var(--pm-on-color) 7%, transparent);
+        .tile.on {
+          background: color-mix(in srgb, var(--active-green) 7%, transparent);
+          border-color: color-mix(in srgb, var(--active-green) 40%, var(--card-border));
         }
 
-        .device-top {
+        .tile-header {
           display: flex;
           align-items: center;
-          min-width: 0;
-          gap: 8px;
+          gap: 10px;
         }
 
-        .icon-wrap {
-          width: 36px;
-          height: 36px;
-          flex: 0 0 36px;
+        .icon-box {
+          width: 38px;
+          height: 38px;
+          flex: 0 0 38px;
           display: grid;
           place-items: center;
-          border-radius: 10px;
+          border-radius: 12px;
           background: rgba(125, 125, 125, 0.1);
-          color: var(--pm-secondary);
+          color: var(--text-sub);
+          transition: 0.2s ease;
         }
 
-        .device.on .icon-wrap {
-          color: var(--pm-on-color);
-          background: color-mix(in srgb, var(--pm-on-color) 18%, transparent);
+        .tile.on .icon-box {
+          background: color-mix(in srgb, var(--active-green) 18%, transparent);
+          color: var(--active-green);
         }
 
-        ha-icon {
-          --mdc-icon-size: 20px;
-        }
-
-        .device-info {
-          min-width: 0;
+        .tile-title-group {
           flex: 1;
+          min-width: 0;
         }
 
-        .name {
+        .tile-name {
+          display: block;
           font-size: 13px;
           font-weight: 600;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          color: var(--pm-text);
         }
 
-        .status {
+        .status-indicator {
           display: flex;
           align-items: center;
           gap: 5px;
-          margin-top: 3px;
-          color: var(--pm-secondary);
           font-size: 10px;
           font-weight: 700;
+          color: var(--text-sub);
+          margin-top: 2px;
         }
 
-        .dot {
+        .pulse-dot {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: var(--pm-secondary);
+          background: var(--text-sub);
         }
 
-        .device.on .dot {
-          background: var(--pm-on-color);
-          box-shadow: 0 0 6px var(--pm-on-color);
+        .tile.on .pulse-dot {
+          background: var(--active-green);
+          box-shadow: 0 0 6px var(--active-green);
         }
 
-        .device.on .status {
-          color: var(--pm-on-color);
+        .tile.on .status-indicator {
+          color: var(--active-green);
         }
 
-        .power {
-          margin-top: 12px;
-          font-size: 20px;
-          line-height: 1;
-          font-weight: 700;
-          letter-spacing: -0.3px;
-          color: var(--pm-power-color);
-        }
-
-        .device.off .power {
-          color: var(--pm-secondary);
-          opacity: 0.45;
-        }
-
-        .device-switch {
-          --switch-checked-button-color: var(--pm-on-color);
-          --switch-checked-track-color: color-mix(in srgb, var(--pm-on-color) 40%, transparent);
-          transform: scale(.8);
+        .tile-switch {
+          --switch-checked-button-color: var(--active-green);
+          --switch-checked-track-color: color-mix(in srgb, var(--active-green) 40%, transparent);
+          transform: scale(0.85);
           transform-origin: right center;
         }
 
-        .main {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          margin: 6px 4px 6px;
-          padding: 12px 14px;
-          border-radius: 14px;
-          border: 1px solid var(--pm-border);
-          background: rgba(125, 125, 125, 0.05);
+        .tile-body {
+          margin-top: 14px;
         }
 
-        .main-left {
-          display: flex;
-          align-items: center;
-          gap: 10px;
+        .power-metric {
+          font-size: 21px;
+          font-weight: 700;
+          letter-spacing: -0.5px;
+          color: var(--watt-amber);
         }
 
-        .main-icon {
-          color: var(--pm-primary);
+        .tile.off .power-metric {
+          color: var(--text-sub);
+          opacity: 0.45;
         }
 
-        .main-title {
-          font-size: 13px;
-          font-weight: 600;
-        }
-
-        .main-power {
-          margin-top: 2px;
-          color: var(--pm-secondary);
+        .no-power {
           font-size: 11px;
           font-weight: 600;
+          color: var(--text-sub);
+          opacity: 0.6;
+          letter-spacing: 0.5px;
         }
 
-        .main-switch {
-          --switch-checked-button-color: var(--pm-primary);
-          --switch-checked-track-color: color-mix(in srgb, var(--pm-primary) 40%, transparent);
-        }
-
-        @media (max-width: 380px) {
+        @media (max-width: 440px) {
+          .top-dashboard {
+            grid-template-columns: 1fr;
+          }
           .grid {
             grid-template-columns: 1fr;
           }
@@ -352,90 +311,85 @@ class PowerMonitorCard extends HTMLElement {
       </style>
 
       <ha-card>
-        <div class="header">
-          <div class="title-row">
-            <div class="title">${this._escape(cfg.title)}</div>
-          </div>
-          ${cfg.show_total && cfg.main_power?.entity ? `
-            <div class="total">${this._formatMainPower(mainPower)}</div>
-            <div class="total-label">Power Now</div>
-          ` : ""}
+        <div class="title-bar">
+          <ha-icon icon="mdi:lightning-bolt"></ha-icon>
+          <span>${this._escape(cfg.title)}</span>
         </div>
 
-        <div class="grid">
-          ${cards}
-        </div>
-
-        ${cfg.show_main_switch && mainSwitchEntity ? `
-          <div class="main">
-            <div class="main-left">
-              <ha-icon class="main-icon" icon="mdi:home-lightning-bolt"></ha-icon>
-              <div>
-                <div class="main-title">Main Power</div>
-                <div class="main-power">${mainSwitchOn ? "ON" : "OFF"}</div>
+        ${cfg.main_power || cfg.main_switch ? `
+          <div class="top-dashboard">
+            ${cfg.main_power ? `
+              <div class="summary-card">
+                <div class="summary-label">
+                  <ha-icon icon="mdi:flash-outline" style="--mdc-icon-size: 14px;"></ha-icon>
+                  Total Load Now
+                </div>
+                <div class="summary-val">${this._formatW(mainPowerVal)}</div>
               </div>
-            </div>
-            <ha-switch class="main-switch" ${mainSwitchOn ? "checked" : ""}></ha-switch>
+            ` : ""}
+
+            ${cfg.main_switch ? `
+              <div class="summary-card interactive" id="main-switch-tile">
+                <div>
+                  <div class="summary-label">
+                    <ha-icon icon="mdi:home-lightning-bolt" style="--mdc-icon-size: 14px;"></ha-icon>
+                    Main Power
+                  </div>
+                  <div style="font-weight:700; font-size:16px; color:${mainSwitchOn ? "var(--active-green)" : "var(--text-sub)"}">
+                    ${mainSwitchOn ? "CONNECTED (ON)" : "OFF"}
+                  </div>
+                </div>
+                <ha-switch ${mainSwitchOn ? "checked" : ""}></ha-switch>
+              </div>
+            ` : ""}
           </div>
         ` : ""}
+
+        <div class="grid">
+          ${deviceCards}
+        </div>
       </ha-card>
     `;
 
-    this.shadowRoot.querySelectorAll(".device").forEach((el) => {
-      el.addEventListener("click", (ev) => {
-        if (ev.target.closest("ha-switch")) return;
-        const index = Number(el.dataset.index);
-        this._toggle(cfg.entities[index]?.entity);
+    // Event Bindings
+    this.shadowRoot.querySelectorAll(".tile").forEach((tile) => {
+      tile.addEventListener("click", (e) => {
+        if (e.target.closest("ha-switch")) return;
+        this._toggle(tile.dataset.switch);
       });
     });
 
-    this.shadowRoot.querySelectorAll(".device-switch").forEach((sw) => {
-      sw.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-      });
-      sw.addEventListener("change", (ev) => {
-        const index = Number(sw.dataset.index);
-        this._toggle(cfg.entities[index]?.entity);
-      });
+    this.shadowRoot.querySelectorAll(".tile-switch").forEach((sw) => {
+      sw.addEventListener("click", (e) => e.stopPropagation());
+      sw.addEventListener("change", () => this._toggle(sw.dataset.switch));
     });
 
-    const mainSwitch = this.shadowRoot.querySelector(".main-switch");
-    if (mainSwitch) {
-      mainSwitch.addEventListener("change", () => this._toggle(mainSwitchEntity));
+    const mainTile = this.shadowRoot.querySelector("#main-switch-tile");
+    if (mainTile) {
+      mainTile.addEventListener("click", () => this._toggle(cfg.main_switch));
     }
   }
 
-  _escape(value) {
-    return String(value ?? "")
+  _escape(str) {
+    return String(str ?? "")
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+      .replaceAll(">", "&gt;");
   }
 }
 
-// ----------------------------------------------------
-// Custom Visual Form Editor
-// ----------------------------------------------------
+// ------------------------------------------------------------------
+// Visual Editor Form
+// ------------------------------------------------------------------
 class PowerMonitorCardEditor extends HTMLElement {
   setConfig(config) {
-    this._config = {
-      title: "Switch & Power Monitor",
-      columns: 2,
-      show_total: true,
-      show_main_switch: false,
-      entities: [],
-      ...config
-    };
+    this._config = config;
     this._render();
   }
 
   set hass(hass) {
     this._hass = hass;
-    if (this._form) {
-      this._form.hass = hass;
-    }
+    if (this._form) this._form.hass = hass;
   }
 
   _render() {
@@ -443,39 +397,26 @@ class PowerMonitorCardEditor extends HTMLElement {
       this.innerHTML = "";
       this._form = document.createElement("ha-form");
       this._form.addEventListener("value-changed", (ev) => {
-        this._valueChanged(ev.detail.value);
+        const event = new CustomEvent("config-changed", {
+          detail: { config: ev.detail.value },
+          bubbles: true,
+          composed: true
+        });
+        this.dispatchEvent(event);
       });
       this.appendChild(this._form);
     }
 
-    if (this._hass) {
-      this._form.hass = this._hass;
-    }
+    if (this._hass) this._form.hass = this._hass;
 
     this._form.schema = [
-      { name: "title", label: "Title", selector: { text: {} } },
-      { name: "columns", label: "Columns", selector: { number: { min: 1, max: 4, mode: "box" } } },
+      { name: "title", label: "Card Title", selector: { text: {} } },
+      { name: "columns", label: "Columns (1 - 4)", selector: { number: { min: 1, max: 4, mode: "box" } } },
+      { name: "main_power", label: "Main Total Power Sensor", selector: { entity: { domain: "sensor" } } },
+      { name: "main_switch", label: "Main Switch", selector: { entity: { domain: ["switch", "light", "input_boolean"] } } },
       {
-        name: "main_power",
-        label: "Main Power Sensor",
-        type: "grid",
-        schema: [
-          { name: "entity", label: "Sensor Entity", selector: { entity: { domain: "sensor" } } }
-        ]
-      },
-      { name: "show_total", label: "Show Total Power", selector: { boolean: {} } },
-      {
-        name: "main_switch",
-        label: "Main Switch Control",
-        type: "grid",
-        schema: [
-          { name: "entity", label: "Switch Entity", selector: { entity: { domain: ["switch", "light", "input_boolean"] } } }
-        ]
-      },
-      { name: "show_main_switch", label: "Show Main Switch", selector: { boolean: {} } },
-      {
-        name: "entities",
-        label: "Devices & Sensors List",
+        name: "devices",
+        label: "Devices (Switch + Power Pairing)",
         selector: {
           object: {}
         }
@@ -483,15 +424,6 @@ class PowerMonitorCardEditor extends HTMLElement {
     ];
 
     this._form.data = this._config;
-  }
-
-  _valueChanged(data) {
-    const event = new CustomEvent("config-changed", {
-      detail: { config: data },
-      bubbles: true,
-      composed: true
-    });
-    this.dispatchEvent(event);
   }
 }
 
@@ -501,7 +433,7 @@ customElements.define("power-monitor-card", PowerMonitorCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "power-monitor-card",
-  name: "Power Monitor Card",
-  description: "Compact switch & power monitor card with theme transparency and visual editing",
+  name: "Power Monitor Card (Unified)",
+  description: "Unified Switch and Power Dashboard Card with Theme Transparency",
   preview: true
 });
