@@ -17,7 +17,6 @@ class PowerMonitorCard extends HTMLElement {
   }
 
   setConfig(config) {
-    // รองรับทั้งคีย์ 'devices' ใหม่ และดึง fallback จาก 'entities' เดิม
     let devices = config.devices;
     if (!devices && Array.isArray(config.entities)) {
       devices = config.entities
@@ -74,7 +73,6 @@ class PowerMonitorCard extends HTMLElement {
 
   _formatRelativeTime(dateStr) {
     if (!dateStr) return "";
-    // แปลงให้รองรับ ISO String ทุกฟอร์แมตของ Home Assistant
     const cleanStr = String(dateStr).replace(/\.\d+/, "");
     const timestamp = Date.parse(cleanStr);
     if (isNaN(timestamp)) return "";
@@ -87,15 +85,12 @@ class PowerMonitorCard extends HTMLElement {
     return `${Math.floor(diff / 86400)}d ago`;
   }
 
+  // ดึงค่า Secondary Information จาก Power Sensor เท่านั้น
   _getSecondaryText(dev) {
     const type = dev.secondary_info || "last-changed";
-    if (type === "none") return "";
+    if (type === "none" || !dev.power) return "";
 
-    // ดึงเวลาจาก switch เป็นหลัก หากไม่มีให้ดึงจาก power sensor
-    const targetEntityId = dev.switch || dev.power;
-    if (!targetEntityId) return "";
-
-    const stateObj = this._hass?.states?.[targetEntityId];
+    const stateObj = this._hass?.states?.[dev.power];
     if (!stateObj) return "";
 
     if (type === "last-changed") {
@@ -105,7 +100,7 @@ class PowerMonitorCard extends HTMLElement {
       return this._formatRelativeTime(stateObj.last_updated);
     }
     if (type === "entity-id") {
-      return targetEntityId;
+      return dev.power;
     }
     return "";
   }
@@ -581,7 +576,6 @@ class PowerMonitorCardEditor extends HTMLElement {
         <div>
           <div class="label-heading">Entities (required)</div>
           
-          <!-- ใช้ <ha-sortable> ของ Home Assistant โดยตรง -->
           <ha-sortable handle-selector=".drag-handle" id="sortable-wrapper">
             <div class="entities-list" id="entities-list"></div>
           </ha-sortable>
@@ -593,7 +587,6 @@ class PowerMonitorCardEditor extends HTMLElement {
       </div>
     `;
 
-    // 1. Header Config Form
     const headerContainer = this.querySelector("#form-header-container");
     this._formHeader = document.createElement("ha-form");
     if (this._hass) this._formHeader.hass = this._hass;
@@ -615,7 +608,6 @@ class PowerMonitorCardEditor extends HTMLElement {
     });
     headerContainer.appendChild(this._formHeader);
 
-    // 2. Entities List Rendering
     const listContainer = this.querySelector("#entities-list");
     const devs = this._config.devices || [];
 
@@ -640,13 +632,13 @@ class PowerMonitorCardEditor extends HTMLElement {
           { name: "power", label: "Power Sensor (W)", selector: { entity: { domain: "sensor" } } },
           {
             name: "secondary_info",
-            label: "Secondary Information",
+            label: "Power Secondary Information",
             selector: {
               select: {
                 options: [
                   { value: "none", label: "None" },
-                  { value: "last-changed", label: "Last changed" },
-                  { value: "last-updated", label: "Last updated" },
+                  { value: "last-changed", label: "Last changed (Power Sensor)" },
+                  { value: "last-updated", label: "Last updated (Power Sensor)" },
                   { value: "entity-id", label: "Entity ID" }
                 ]
               }
@@ -681,7 +673,7 @@ class PowerMonitorCardEditor extends HTMLElement {
         const stateObj = this._hass?.states?.[dev.switch];
         const dispName = dev.name || stateObj?.attributes?.friendly_name || dev.switch || "ยังไม่ได้เลือกสวิตช์";
         const secInfoType = dev.secondary_info || "last-changed";
-        const subInfo = secInfoType !== "none" ? `[${secInfoType}]` : "";
+        const subInfo = secInfoType !== "none" ? `[Power: ${secInfoType}]` : "";
         const subText = dev.switch ? `${dev.switch} ${dev.power ? `• ${dev.power}` : ""} ${subInfo}` : "คลิกดินสอเพื่อตั้งค่า";
         const icon = dev.icon || stateObj?.attributes?.icon || "mdi:flash";
 
@@ -719,7 +711,6 @@ class PowerMonitorCardEditor extends HTMLElement {
       }
     });
 
-    // ดัก Event การลากสลับตำแหน่งจาก <ha-sortable>
     const sortableWrapper = this.querySelector("#sortable-wrapper");
     if (sortableWrapper) {
       sortableWrapper.addEventListener("item-moved", (ev) => {
@@ -734,7 +725,6 @@ class PowerMonitorCardEditor extends HTMLElement {
       });
     }
 
-    // ปุ่มเพิ่มแถวใหม่
     const btnAdd = this.querySelector("#btn-add-row");
     if (btnAdd) {
       btnAdd.addEventListener("click", () => {
@@ -774,6 +764,6 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "power-monitor-card",
   name: "Power Monitor Card (Slim List)",
-  description: "Ultra-compact switch and power card with native sortable and real-time secondary info",
+  description: "Ultra-compact switch and power card with native sortable and power sensor secondary info",
   preview: true
 });
