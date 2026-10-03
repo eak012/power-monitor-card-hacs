@@ -31,33 +31,37 @@ Example Configuration
 type: custom:power-monitor-card
 title: Switch & Power Monitor
 columns: 2
-show_total: true
-show_main_switch: true
+main_power: sensor.main_power
+main_switch: switch.main
 
-main_power:
-  entity: sensor.main_power
-
-main_switch:
-  entity: switch.main
-
-entities:
-  - entity: switch.airlivbk
+devices:
+  - name: Air Living
+    switch: switch.airlivbk
     power: sensor.airlivbk_power
-    name: Air Living
     icon: mdi:sofa
 
-  - entity: switch.airbedr_airbedroom
+  - name: Air Bed
+    switch: switch.airbedr_airbedroom
     power: sensor.airbedr_energy_power
-    name: Air Bed
     icon: mdi:bed
 
-  - entity: switch.pump_plug
+  - name: Air Small Bed
+    switch: switch.secondbedroom
+    power: sensor.secondbedroom_power
+    icon: mdi:bed-outline
+
+  - name: Water Pump
+    switch: switch.pump_plug
     power: sensor.pump_plug_power
-    name: Water Pump
     icon: mdi:water-pump
 
-  - entity: switch.solarmeter
-    power: sensor.solarmeter_power
-    name: Solar
+  - name: Solar Meter
+    switch: switch.solarmeter
+    power: ""
     icon: mdi:solar-power-variant
+
+  - name: O₂
+    switch: switch.o2
+    power: sensor.o2_power
+    icon: mdi:air-filter
 ```
