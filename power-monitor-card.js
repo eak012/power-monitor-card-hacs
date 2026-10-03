@@ -1,28 +1,27 @@
 class PowerMonitorCard extends HTMLElement {
-  static getConfigElement() {
+  static async getConfigElement() {
     return document.createElement("power-monitor-card-editor");
   }
 
   static getStubConfig() {
     return {
       title: "Switch & Power Monitor",
-      entities: [],
       columns: 2,
       show_total: true,
-      show_main_switch: true
+      show_main_switch: false,
+      entities: []
     };
   }
 
   setConfig(config) {
-    if (!config || !Array.isArray(config.entities)) {
-      throw new Error("power-monitor-card: 'entities' must be an array");
-    }
+    if (!config) throw new Error("Invalid configuration");
 
     this._config = {
       title: "Switch & Power Monitor",
       columns: 2,
       show_total: true,
-      show_main_switch: true,
+      show_main_switch: false,
+      entities: [],
       ...config
     };
 
@@ -53,21 +52,17 @@ class PowerMonitorCard extends HTMLElement {
   _powerValue(entityId) {
     const state = this._state(entityId);
     if (!state) return null;
-
     const value = Number.parseFloat(state.state);
-    if (!Number.isFinite(value)) return null;
-    return value;
+    return Number.isFinite(value) ? value : null;
   }
 
   _formatPower(value) {
     if (value === null || value === undefined || !Number.isFinite(value)) {
       return "— W";
     }
-
     if (Math.abs(value) >= 1000) {
       return `${(value / 1000).toFixed(2)} kW`;
     }
-
     return `${Math.round(value)} W`;
   }
 
@@ -75,11 +70,9 @@ class PowerMonitorCard extends HTMLElement {
     if (value === null || value === undefined || !Number.isFinite(value)) {
       return "—";
     }
-
     if (Math.abs(value) >= 1000) {
       return `${(value / 1000).toFixed(2)} kW`;
     }
-
     return `${Math.round(value)} W`;
   }
 
@@ -94,13 +87,9 @@ class PowerMonitorCard extends HTMLElement {
 
   _toggle(entityId) {
     if (!this._hass || !entityId) return;
-
     const domain = entityId.split(".")[0];
     if (!["switch", "light", "input_boolean"].includes(domain)) return;
-
-    this._hass.callService(domain, "toggle", {
-      entity_id: entityId
-    });
+    this._hass.callService(domain, "toggle", { entity_id: entityId });
   }
 
   _render() {
@@ -111,7 +100,7 @@ class PowerMonitorCard extends HTMLElement {
       ? this._powerValue(cfg.main_power.entity)
       : null;
 
-    const cards = cfg.entities.map((item, index) => {
+    const cards = (cfg.entities || []).map((item, index) => {
       const isOn = this._isOn(item.entity);
       const power = item.power ? this._powerValue(item.power) : null;
       const name = this._friendlyName(item.entity, item.name);
@@ -151,19 +140,17 @@ class PowerMonitorCard extends HTMLElement {
       <style>
         :host {
           display: block;
-          /* Color Scheme: เข้าใจง่ายและเป็นมิตรกับธีม */
           --pm-primary: var(--primary-color, #0284c7);
           --pm-text: var(--primary-text-color, #f1f5f9);
           --pm-secondary: var(--secondary-text-color, #94a3b8);
           --pm-border: var(--divider-color, rgba(255, 255, 255, 0.12));
-          --pm-on-color: #10b981;    /* เขียว สดใส สื่อถึงสถานะกำลังทำงาน */
-          --pm-power-color: #f59e0b; /* ส้มอมทอง สื่อถึงค่ากำลังไฟฟ้า/การบริโภคพลังงาน */
-          --pm-main-power: #38bdf8;  /* ฟ้าสว่าง ชัดเจนสำหรับกำลังไฟรวม */
+          --pm-on-color: #10b981;
+          --pm-power-color: #f59e0b;
+          --pm-main-power: #38bdf8;
           --pm-radius: 18px;
         }
 
         ha-card {
-          /* ใช้สีพื้นหลังของธีม 100% */
           background: transparent;
           color: var(--pm-text);
           border-radius: var(--pm-radius);
@@ -428,18 +415,93 @@ class PowerMonitorCard extends HTMLElement {
   }
 }
 
+// ----------------------------------------------------
+// Custom Visual Form Editor
+// ----------------------------------------------------
+class PowerMonitorCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = {
+      title: "Switch & Power Monitor",
+      columns: 2,
+      show_total: true,
+      show_main_switch: false,
+      entities: [],
+      ...config
+    };
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    if (this._form) {
+      this._form.hass = hass;
+    }
+  }
+
+  _render() {
+    if (!this._form) {
+      this.innerHTML = "";
+      this._form = document.createElement("ha-form");
+      this._form.addEventListener("value-changed", (ev) => {
+        this._valueChanged(ev.detail.value);
+      });
+      this.appendChild(this._form);
+    }
+
+    if (this._hass) {
+      this._form.hass = this._hass;
+    }
+
+    this._form.schema = [
+      { name: "title", label: "Title", selector: { text: {} } },
+      { name: "columns", label: "Columns", selector: { number: { min: 1, max: 4, mode: "box" } } },
+      {
+        name: "main_power",
+        label: "Main Power Sensor",
+        type: "grid",
+        schema: [
+          { name: "entity", label: "Sensor Entity", selector: { entity: { domain: "sensor" } } }
+        ]
+      },
+      { name: "show_total", label: "Show Total Power", selector: { boolean: {} } },
+      {
+        name: "main_switch",
+        label: "Main Switch Control",
+        type: "grid",
+        schema: [
+          { name: "entity", label: "Switch Entity", selector: { entity: { domain: ["switch", "light", "input_boolean"] } } }
+        ]
+      },
+      { name: "show_main_switch", label: "Show Main Switch", selector: { boolean: {} } },
+      {
+        name: "entities",
+        label: "Devices & Sensors List",
+        selector: {
+          object: {}
+        }
+      }
+    ];
+
+    this._form.data = this._config;
+  }
+
+  _valueChanged(data) {
+    const event = new CustomEvent("config-changed", {
+      detail: { config: data },
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
+  }
+}
+
+customElements.define("power-monitor-card-editor", PowerMonitorCardEditor);
 customElements.define("power-monitor-card", PowerMonitorCard);
 
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "power-monitor-card",
   name: "Power Monitor Card",
-  description: "Compact 2-column switch and power monitor card",
+  description: "Compact switch & power monitor card with theme transparency and visual editing",
   preview: true
 });
-
-console.info(
-  "%c POWER-MONITOR-CARD %c 1.0.0 ",
-  "color:white;background:#0284c7;font-weight:bold;",
-  "color:#0284c7;background:transparent;font-weight:bold;"
-);
